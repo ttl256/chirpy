@@ -2,22 +2,24 @@
 
 BIN_NAME := chirpy
 
-.PHONY:all
+DEBUG ?= 0
+ifeq ($(DEBUG), 1)
+	FLAGS += --debug
+endif
+
+.PHONY: all build run test is-pretty
+
 all: build run
 
-.PHONY:build
 build:
 	go build -o $(BIN_NAME)
 
-.PHONY:run
 run:
-	./$(BIN_NAME)
+	./$(BIN_NAME) $(FLAGS)
 
-.PHONY:test
 test:
 	go test -v -cover ./...
 
-.PHONY:is-pretty
 is-pretty:
 	-golangci-lint run
 	-gofmt -d $(CURDIR) | colordiff

@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -36,7 +37,22 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, _ *http.Request) {
 	respondWithJSON(w, http.StatusOK, chirps)
 }
 
-func (cfg *apiConfig) postChirpHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) chirpByIDHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("chirp_id"))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("invalid ID: %s", err))
+		return
+	}
+	dbChirp, err := cfg.db.GetChirpByID(id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	chirp := Chirp{ID: dbChirp.ID, Body: dbChirp.Body}
+	respondWithJSON(w, http.StatusOK, chirp)
+}
+
+func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body string `json:"body"`
 	}

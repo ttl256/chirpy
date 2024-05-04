@@ -21,36 +21,10 @@ func New(path string) (*DB, error) {
 	return db, err
 }
 
-func (db *DB) CreateChirp(body string) (Chirp, error) {
-	s, err := db.loadDB()
-	if err != nil {
-		return Chirp{}, err
-	}
-	id := len(s.Chirps) + 1
-	c := Chirp{ID: id, Body: body}
-	s.Chirps[id] = c
-	err = db.writeDB(s)
-	if err != nil {
-		return Chirp{}, err
-	}
-	return c, nil
-}
-
-func (db *DB) GetChirps() ([]Chirp, error) {
-	s, err := db.loadDB()
-	if err != nil {
-		return []Chirp{}, err
-	}
-	chirps := make([]Chirp, 0, len(s.Chirps))
-	for _, i := range s.Chirps {
-		chirps = append(chirps, i)
-	}
-	return chirps, nil
-}
-
 func (db *DB) createDB() error {
 	s := Schema{
 		Chirps: map[int]Chirp{},
+		Users:  map[int]User{},
 	}
 	return db.writeDB(s)
 }
@@ -66,6 +40,7 @@ func (db *DB) ensureDB() error {
 func (db *DB) loadDB() (Schema, error) {
 	schema := Schema{
 		Chirps: map[int]Chirp{},
+		Users:  map[int]User{},
 	}
 	db.mux.Lock()
 	defer db.mux.Unlock()
@@ -81,7 +56,7 @@ func (db *DB) loadDB() (Schema, error) {
 }
 
 func (db *DB) writeDB(schema Schema) error {
-	data, err := json.Marshal(schema)
+	data, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
 		return err
 	}
