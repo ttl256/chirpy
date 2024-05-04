@@ -9,16 +9,12 @@ import (
 	"github.com/ttl256/chirpy/internal/auth"
 )
 
-type User struct {
-	ID    int    `json:"id"`
-	Email string `json:"email"`
-}
-
-func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
+
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{Email: "", Password: ""}
 	if err := decoder.Decode(&params); err != nil {
@@ -27,20 +23,20 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	hash, err := auth.HashPassword(params.Password)
+	dbUser, err := cfg.db.GetUserByEmail(params.Email)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("error hashing password: %s", err))
+		respondWithError(w, http.StatusNotFound, "no such user")
 		return
 	}
 
-	user, err := cfg.db.CreateUser(params.Email, hash)
+	err = auth.CheckPasswordHash(params.Password, dbUser.Password)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
+		respondWithError(w, http.StatusUnauthorized, "password is invalid")
 		return
 	}
-	respondWithJSON(w, http.StatusCreated, User{
-		ID:    user.ID,
-		Email: user.Email,
-	},
-	)
+	user := User{
+		ID:    dbUser.ID,
+		Email: dbUser.Email,
+	}
+	respondWithJSON(w, http.StatusOK, user)
 }

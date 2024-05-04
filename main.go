@@ -50,6 +50,8 @@ func main() {
 
 	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
 
+	mux.HandleFunc("POST /api/login", cfg.loginHandler)
+
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 
 	s := http.Server{ //nolint: gosec // let me be

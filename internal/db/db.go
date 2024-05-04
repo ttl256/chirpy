@@ -7,6 +7,9 @@ import (
 	"sync"
 )
 
+var ErrNotExists = errors.New("resource does not exist")
+var ErrAlreadyExists = errors.New("resource already exists")
+
 type DB struct {
 	path string
 	mux  sync.Mutex
