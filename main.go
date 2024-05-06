@@ -57,11 +57,11 @@ func main() {
 
 	mux.HandleFunc("GET /api/chirps", cfg.getChirpsHandler)
 	mux.HandleFunc("GET /api/chirps/{chirp_id}", cfg.chirpByIDHandler)
-	mux.HandleFunc("DELETE /api/chirps/{chirp_id}", cfg.deleteChirpHandler)
-	mux.HandleFunc("POST /api/chirps", cfg.createChirpHandler)
+	mux.Handle("DELETE /api/chirps/{chirp_id}", cfg.authMiddleware(http.HandlerFunc(cfg.deleteChirpHandler)))
+	mux.Handle("POST /api/chirps", cfg.authMiddleware(http.HandlerFunc(cfg.createChirpHandler)))
 
 	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
-	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
+	mux.Handle("PUT /api/users", cfg.authMiddleware(http.HandlerFunc(cfg.updateUserHandler)))
 
 	mux.HandleFunc("POST /api/login", cfg.loginHandler)
 	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)

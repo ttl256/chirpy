@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 
 	"github.com/ttl256/chirpy/internal/auth"
 )
@@ -48,23 +47,9 @@ func (cfg *apiConfig) createUserHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (cfg *apiConfig) updateUserHandler(w http.ResponseWriter, r *http.Request) {
-	token, err := auth.GetBearer(r.Header)
-	if err != nil {
-		log.Printf("error extracting JWT from header %#v: %s", r.Header, err)
-		respondWithError(w, http.StatusUnauthorized, "error extracting JWT from header")
-		return
-	}
-	subject, err := auth.ValidateJWT(token, cfg.jwtSecret)
-	if err != nil {
-		log.Printf("error validating JWT %s: %s", token, err)
-		respondWithError(w, http.StatusUnauthorized, "error validating JWT")
-		return
-	}
-
-	id, err := strconv.Atoi(subject)
-	if err != nil {
-		log.Printf("error parsing user ID: %s", err)
-		respondWithError(w, http.StatusInternalServerError, "error parsing user ID")
+	id, ok := r.Context().Value(subjectID{}).(int)
+	if !ok {
+		respondWithError(w, http.StatusInternalServerError, "could not infer type int on field subject")
 		return
 	}
 
@@ -74,7 +59,7 @@ func (cfg *apiConfig) updateUserHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{Email: "", Password: ""}
-	if err = decoder.Decode(&params); err != nil {
+	if err := decoder.Decode(&params); err != nil {
 		log.Printf("error decoding json: %s", err)
 		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("could not decode parameters: %s", err))
 		return
