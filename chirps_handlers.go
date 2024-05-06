@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/ttl256/chirpy/internal/db"
 )
 
 type Chirp struct {
@@ -19,11 +21,42 @@ type Chirp struct {
 	Body     string `json:"body"`
 }
 
-func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, _ *http.Request) {
-	dbChirps, err := cfg.db.GetChirps()
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
-		return
+type Sort int
+
+const (
+	Ascending Sort = iota
+	Descending
+)
+
+func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, r *http.Request) {
+	var dbChirps []db.Chirp
+	var err error
+	if authorID := r.URL.Query().Get("author_id"); authorID != "" {
+		var id int
+		id, err = strconv.Atoi(authorID)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		dbChirps, err = cfg.db.GetChirpsByAuthor(id)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else {
+		dbChirps, err = cfg.db.GetChirps()
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	var sort = Ascending
+
+	if sortOrder := r.URL.Query().Get("sort"); sortOrder != "" {
+		if sortOrder == "desc" {
+			sort = Descending
+		}
 	}
 
 	chirps := make([]Chirp, 0, len(dbChirps))
@@ -38,6 +71,10 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, _ *http.Request) {
 	slices.SortStableFunc(chirps, func(a, b Chirp) int {
 		return cmp.Compare(a.ID, b.ID)
 	})
+
+	if sort == Descending {
+		slices.Reverse(chirps)
+	}
 
 	respondWithJSON(w, http.StatusOK, chirps)
 }

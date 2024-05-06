@@ -11,7 +11,7 @@ import (
 
 func (cfg *apiConfig) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		token, err := auth.GetBearer(r.Header)
+		token, err := auth.GetAuth(r.Header, "Bearer")
 		if err != nil {
 			log.Printf("error extracting JWT from header %#v: %s", r.Header, err)
 			respondWithError(w, http.StatusUnauthorized, "error extracting JWT from header")

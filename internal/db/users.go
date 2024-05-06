@@ -23,9 +23,10 @@ func (db *DB) CreateUser(email string, hash string) (User, error) {
 
 	id := len(s.Users) + 1
 	user := User{
-		ID:       id,
-		Email:    email,
-		Password: hash,
+		ID:        id,
+		Email:     email,
+		Password:  hash,
+		ChirpyRed: false,
 		RefreshToken: Token{
 			Token:     "",
 			ExpiresAt: time.Time{},
@@ -110,6 +111,24 @@ func (db *DB) CreateRefreshToken(id int) (string, error) {
 		return "", err
 	}
 	return token, nil
+}
+
+func (db *DB) UpgradeMembership(id int) error {
+	user, err := db.GetUserByID(id)
+	if err != nil {
+		return err
+	}
+	user.ChirpyRed = true
+	s, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+	s.Users[user.ID] = user
+	err = db.writeDB(s)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db *DB) GetUserByRefreshToken(token string) (User, error) {

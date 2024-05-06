@@ -63,13 +63,13 @@ func ValidateJWT(token, secret string) (string, error) {
 	return subject, nil
 }
 
-func GetBearer(header http.Header) (string, error) {
+func GetAuth(header http.Header, key string) (string, error) {
 	authHeader := header.Get("Authorization")
 	if authHeader == "" {
 		return "", ErrMissingAuthHeader
 	}
 	hFileds := strings.Fields(authHeader)
-	if len(hFileds) < 2 || hFileds[0] != "Bearer" {
+	if len(hFileds) < 2 || hFileds[0] != key {
 		return "", ErrMalformedAuthHeader
 	}
 	return hFileds[1], nil

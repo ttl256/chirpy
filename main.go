@@ -36,6 +36,10 @@ func main() {
 	if jwtSecret == "" {
 		log.Fatal("JWT secret is not set")
 	}
+	polkaAPIKey := os.Getenv("POLKA_API_KEY")
+	if polkaAPIKey == "" {
+		log.Fatal("POLKA_API_KEY")
+	}
 
 	const tcpAddr = "0.0.0.0:8080"
 
@@ -46,6 +50,7 @@ func main() {
 	cfg := &apiConfig{
 		fileserverHits: 0,
 		jwtSecret:      jwtSecret,
+		polkaAPIKey:    polkaAPIKey,
 		db:             db,
 	}
 
@@ -67,6 +72,8 @@ func main() {
 	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)
 	mux.HandleFunc("POST /api/revoke", cfg.revokeHandler)
 
+	mux.HandleFunc("POST /api/polka/webhooks", cfg.membershipHandler)
+
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 
 	s := http.Server{ //nolint: gosec // let me be
@@ -83,5 +90,6 @@ func main() {
 type apiConfig struct {
 	fileserverHits int
 	jwtSecret      string
+	polkaAPIKey    string
 	db             *db.DB
 }

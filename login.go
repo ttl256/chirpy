@@ -61,8 +61,9 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		RefreshToken string `json:"refresh_token"`
 	}{
 		User: User{
-			ID:    dbUser.ID,
-			Email: dbUser.Email,
+			ID:        dbUser.ID,
+			Email:     dbUser.Email,
+			ChirpyRed: dbUser.ChirpyRed,
 		},
 		Token:        token,
 		RefreshToken: tokenRefresh,
@@ -71,7 +72,7 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) refreshHandler(w http.ResponseWriter, r *http.Request) {
-	tokenRefresh, err := auth.GetBearer(r.Header)
+	tokenRefresh, err := auth.GetAuth(r.Header, "Bearer")
 	if err != nil {
 		log.Printf("error extracting refresh token from header %#v: %s", r.Header, err)
 		respondWithError(w, http.StatusUnauthorized, "error extracting refresh token from header")
@@ -103,7 +104,7 @@ func (cfg *apiConfig) refreshHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) revokeHandler(w http.ResponseWriter, r *http.Request) {
-	tokenRefresh, err := auth.GetBearer(r.Header)
+	tokenRefresh, err := auth.GetAuth(r.Header, "Bearer")
 	if err != nil {
 		log.Printf("error extracting refresh token from header %#v: %s", r.Header, err)
 		respondWithError(w, http.StatusUnauthorized, "error extracting refresh token from header")
