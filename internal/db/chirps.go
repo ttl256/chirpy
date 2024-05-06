@@ -2,19 +2,36 @@ package db
 
 import "fmt"
 
-func (db *DB) CreateChirp(body string) (Chirp, error) {
+func (db *DB) CreateChirp(authorID int, body string) (Chirp, error) {
 	s, err := db.loadDB()
 	if err != nil {
 		return Chirp{}, err
 	}
 	id := len(s.Chirps) + 1
-	c := Chirp{ID: id, Body: body}
+	c := Chirp{
+		ID:       id,
+		AuthorID: authorID,
+		Body:     body,
+	}
 	s.Chirps[id] = c
 	err = db.writeDB(s)
 	if err != nil {
 		return Chirp{}, err
 	}
 	return c, nil
+}
+
+func (db *DB) DeleteChirp(id int) error {
+	s, err := db.loadDB()
+	if err != nil {
+		return err
+	}
+	delete(s.Chirps, id)
+	err = db.writeDB(s)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (db *DB) GetChirps() ([]Chirp, error) {

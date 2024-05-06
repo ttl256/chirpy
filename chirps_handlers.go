@@ -11,11 +11,14 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/ttl256/chirpy/internal/auth"
 )
 
 type Chirp struct {
-	ID   int    `json:"id"`
-	Body string `json:"body"`
+	ID       int    `json:"id"`
+	AuthorID int    `json:"author_id"`
+	Body     string `json:"body"`
 }
 
 func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, _ *http.Request) {
@@ -27,7 +30,11 @@ func (cfg *apiConfig) getChirpsHandler(w http.ResponseWriter, _ *http.Request) {
 
 	chirps := make([]Chirp, 0, len(dbChirps))
 	for _, chirp := range dbChirps {
-		chirps = append(chirps, Chirp{ID: chirp.ID, Body: chirp.Body})
+		chirps = append(chirps, Chirp{
+			ID:       chirp.ID,
+			AuthorID: chirp.AuthorID,
+			Body:     chirp.Body,
+		})
 	}
 
 	slices.SortStableFunc(chirps, func(a, b Chirp) int {
@@ -48,18 +55,88 @@ func (cfg *apiConfig) chirpByIDHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	chirp := Chirp{ID: dbChirp.ID, Body: dbChirp.Body}
+	chirp := Chirp{
+		ID:       dbChirp.ID,
+		AuthorID: dbChirp.AuthorID,
+		Body:     dbChirp.Body,
+	}
 	respondWithJSON(w, http.StatusOK, chirp)
 }
 
+func (cfg *apiConfig) deleteChirpHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("chirp_id"))
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("invalid ID: %s", err))
+		return
+	}
+	dbChirp, err := cfg.db.GetChirpByID(id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, err.Error())
+		return
+	}
+
+	token, err := auth.GetBearer(r.Header)
+	if err != nil {
+		log.Printf("error extracting JWT from header %#v: %s", r.Header, err)
+		respondWithError(w, http.StatusUnauthorized, "error extracting JWT from header")
+		return
+	}
+	subject, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("error validating JWT %s: %s", token, err)
+		respondWithError(w, http.StatusUnauthorized, "error validating JWT")
+		return
+	}
+
+	authorID, err := strconv.Atoi(subject)
+	if err != nil {
+		log.Printf("error parsing user ID: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "error parsing user ID")
+		return
+	}
+
+	if authorID != dbChirp.AuthorID {
+		respondWithError(w, http.StatusForbidden, "cannot delete someone else's chirp")
+		return
+	}
+
+	err = cfg.db.DeleteChirp(dbChirp.ID)
+	if err != nil {
+		respondWithJSON(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, nil)
+}
+
 func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearer(r.Header)
+	if err != nil {
+		log.Printf("error extracting JWT from header %#v: %s", r.Header, err)
+		respondWithError(w, http.StatusUnauthorized, "error extracting JWT from header")
+		return
+	}
+	subject, err := auth.ValidateJWT(token, cfg.jwtSecret)
+	if err != nil {
+		log.Printf("error validating JWT %s: %s", token, err)
+		respondWithError(w, http.StatusUnauthorized, "error validating JWT")
+		return
+	}
+
+	authorID, err := strconv.Atoi(subject)
+	if err != nil {
+		log.Printf("error parsing user ID: %s", err)
+		respondWithError(w, http.StatusInternalServerError, "error parsing user ID")
+		return
+	}
+
 	type parameters struct {
 		Body string `json:"body"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{Body: ""}
-	if err := decoder.Decode(&params); err != nil {
+	if err = decoder.Decode(&params); err != nil {
 		log.Printf("error decoding json: %s", err)
 		respondWithError(w, http.StatusInternalServerError, fmt.Sprintf("could not decode parameters: %s", err))
 		return
@@ -71,12 +148,16 @@ func (cfg *apiConfig) createChirpHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	chirp, err := cfg.db.CreateChirp(body)
+	chirp, err := cfg.db.CreateChirp(authorID, body)
 	if err != nil {
 		log.Printf("error creating chirp: %s", err)
 	}
 
-	respondWithJSON(w, http.StatusCreated, Chirp{ID: chirp.ID, Body: chirp.Body})
+	respondWithJSON(w, http.StatusCreated, Chirp{
+		ID:       chirp.ID,
+		AuthorID: authorID,
+		Body:     chirp.Body,
+	})
 }
 
 func validateChirp(body string) (string, error) {

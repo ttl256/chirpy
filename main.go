@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/joho/godotenv"
 	"github.com/ttl256/chirpy/internal/db"
 )
 
@@ -15,7 +16,7 @@ func main() {
 	flag.Parse()
 
 	const dbName = "database.json"
-	if *debug {
+	if debug != nil && *debug {
 		err := os.Remove(dbName)
 		if err != nil {
 			if !errors.Is(err, os.ErrNotExist) {
@@ -27,6 +28,15 @@ func main() {
 		}
 	}
 
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal(err)
+	}
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT secret is not set")
+	}
+
 	const tcpAddr = "0.0.0.0:8080"
 
 	db, err := db.New("database.json")
@@ -35,6 +45,7 @@ func main() {
 	}
 	cfg := &apiConfig{
 		fileserverHits: 0,
+		jwtSecret:      jwtSecret,
 		db:             db,
 	}
 
@@ -46,11 +57,15 @@ func main() {
 
 	mux.HandleFunc("GET /api/chirps", cfg.getChirpsHandler)
 	mux.HandleFunc("GET /api/chirps/{chirp_id}", cfg.chirpByIDHandler)
+	mux.HandleFunc("DELETE /api/chirps/{chirp_id}", cfg.deleteChirpHandler)
 	mux.HandleFunc("POST /api/chirps", cfg.createChirpHandler)
 
 	mux.HandleFunc("POST /api/users", cfg.createUserHandler)
+	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
 
 	mux.HandleFunc("POST /api/login", cfg.loginHandler)
+	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)
+	mux.HandleFunc("POST /api/revoke", cfg.revokeHandler)
 
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 
@@ -67,5 +82,6 @@ func main() {
 
 type apiConfig struct {
 	fileserverHits int
+	jwtSecret      string
 	db             *db.DB
 }
